@@ -36,11 +36,15 @@ import java.lang.annotation.Target;
  * the {@link #rollbackOn()} clause. By default, only unchecked exceptions trigger a
  * rollback.
  *
+ * @deprecated The semantics ot this annotation are implemented by using {@link javax.transaction.Transactional}.
+ *             Please migrate to JTA 1.2 by using {@link javax.transaction.Transactional} in the future.
+ *
  * @author Dhanji R. Prasanna (dhanji@gmail.com)
  */
 @Target({ ElementType.METHOD, ElementType.TYPE })
 @Retention(RetentionPolicy.RUNTIME)
 @Inherited
+@Deprecated
 public @interface Transactional {
 
   /**
@@ -58,5 +62,5 @@ public @interface Transactional {
    * Note that ignore exceptions take precedence over rollbackOn, but with subtype
    * granularity.
    */
-  Class<? extends Exception>[] ignore() default { };
+   Class<? extends Exception>[] ignore() default { };
 }

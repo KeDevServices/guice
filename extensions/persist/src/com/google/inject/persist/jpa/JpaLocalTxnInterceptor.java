@@ -13,151 +13,85 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package com.google.inject.persist.jpa;
 
 import com.google.inject.Inject;
+import com.google.inject.Provider;
 import com.google.inject.persist.Transactional;
 import com.google.inject.persist.UnitOfWork;
 
 import org.aopalliance.intercept.MethodInterceptor;
 import org.aopalliance.intercept.MethodInvocation;
 
+import java.lang.reflect.AnnotatedElement;
 import java.lang.reflect.Method;
+import java.util.Optional;
 
 import javax.persistence.EntityManager;
-import javax.persistence.EntityTransaction;
 
 /**
  * @author Dhanji R. Prasanna (dhanji@gmail.com)
+ * @author Joachim Klein (jk@kedev.eu, luno1977@gmail.com)
  */
 class JpaLocalTxnInterceptor implements MethodInterceptor {
 
-  // TODO(gak): Move these args to the cxtor & make these final.
   @Inject
-  private JpaPersistService emProvider = null;
+  private final Provider<EntityManager> emProvider = null;
 
   @Inject
-  private UnitOfWork unitOfWork = null;
-
-  @Transactional
-  private static class Internal {}
-
-  // Tracks if the unit of work was begun implicitly by this transaction.
-  private final ThreadLocal<Boolean> didWeStartWork = new ThreadLocal<Boolean>();
+  private final UnitOfWork unitOfWork = null;
 
   public Object invoke(MethodInvocation methodInvocation) throws Throwable {
-
-    // Should we start a unit of work?
-    if (!emProvider.isWorking()) {
-      emProvider.begin();
-      didWeStartWork.set(true);
-    }
-
-    Transactional transactional = readTransactionMetadata(methodInvocation);
-    EntityManager em = this.emProvider.get();
-
-    // Allow 'joining' of transactions if there is an enclosing @Transactional method.
-    if (em.getTransaction().isActive()) {
-      return methodInvocation.proceed();
-    }
-
-    final EntityTransaction txn = em.getTransaction();
-    txn.begin();
-
-    Object result;
-    try {
-      result = methodInvocation.proceed();
-
-    } catch (Exception e) {
-      //commit transaction only if rollback didnt occur
-      if (rollbackIfNecessary(transactional, e, txn)) {
-        txn.commit();
-      }
-
-      //propagate whatever exception is thrown anyway
-      throw e;
-    } finally {
-      // Close the em if necessary (guarded so this code doesn't run unless catch fired).
-      if (null != didWeStartWork.get() && !txn.isActive()) {
-        didWeStartWork.remove();
-        unitOfWork.end();
-      }
-    }
-
-    //everything was normal so commit the txn (do not move into try block above as it
-    //  interferes with the advised method's throwing semantics)
-    try {
-      txn.commit();
-    } finally {
-      //close the em if necessary
-      if (null != didWeStartWork.get() ) {
-        didWeStartWork.remove();
-        unitOfWork.end();
-      }
-    }
-
-    //or return result
-    return result;
-  }
-
-  // TODO(dhanji): Cache this method's results.
-  private Transactional readTransactionMetadata(MethodInvocation methodInvocation) {
-    Transactional transactional;
-    Method method = methodInvocation.getMethod();
-    Class<?> targetClass = methodInvocation.getThis().getClass();
-
-    transactional = method.getAnnotation(Transactional.class);
-    if (null == transactional) {
-      // If none on method, try the class.
-      transactional = targetClass.getAnnotation(Transactional.class);
-    }
-    if (null == transactional) {
-      // If there is no transactional annotation present, use the default
-      transactional = Internal.class.getAnnotation(Transactional.class);
-    }
-
-    return transactional;
+    TransactionalMetadata transactionalMetadata = readTransactionalMetadata(methodInvocation);
+    TransactionalBehavior transactionalBehavior = TransactionalBehavior.from(transactionalMetadata);
+    return transactionalBehavior.handleInvocation(methodInvocation, emProvider, unitOfWork);
   }
 
   /**
-   * Returns True if rollback DID NOT HAPPEN (i.e. if commit should continue).
+   * Reads the TransactionalBehavior given by {@link com.google.inject.persist.Transactional} or
+   * {@link javax.transaction.Transactional}.
    *
-   * @param transactional The metadata annotaiton of the method
-   * @param e The exception to test for rollback
-   * @param txn A JPA Transaction to issue rollbacks on
+   * Method level takes precedence over class level.
+   * A {@link javax.transaction.Transactional} annotation takes precedence over
+   * {@link com.google.inject.persist.Transactional} annotation.
+   *
+   * @param methodInvocation
+   * @return
    */
-  private boolean rollbackIfNecessary(Transactional transactional, Exception e,
-      EntityTransaction txn) {
-    boolean commit = true;
+  private TransactionalMetadata readTransactionalMetadata(MethodInvocation methodInvocation) {
+    TransactionalMetadata metadata = TransactionalMetadata.defaultMetadata();
+    Method method = methodInvocation.getMethod();
+    Class<?> targetClass = methodInvocation.getThis().getClass();
 
-    //check rollback clauses
-    for (Class<? extends Exception> rollBackOn : transactional.rollbackOn()) {
-
-      //if one matched, try to perform a rollback
-      if (rollBackOn.isInstance(e)) {
-        commit = false;
-
-        //check ignore clauses (supercedes rollback clause)
-        for (Class<? extends Exception> exceptOn : transactional.ignore()) {
-          //An exception to the rollback clause was found, DON'T rollback
-          // (i.e. commit and throw anyway)
-          if (exceptOn.isInstance(e)) {
-            commit = true;
-            break;
-          }
-        }
-
-        //rollback only if nothing matched the ignore check
-        if (!commit) {
-          txn.rollback();
-        }
-        //otherwise continue to commit
-
-        break;
+    Optional<TransactionalMetadata> methodData = readTransactionalFrom(method);
+    if (methodData.isPresent()) {
+      metadata = methodData.get();
+    } else {
+      Optional<TransactionalMetadata> classData = readTransactionalFrom(targetClass);
+      if (classData.isPresent()) {
+        metadata = classData.get();
       }
     }
 
-    return commit;
+    return metadata;
+  }
+
+  private Optional<TransactionalMetadata> readTransactionalFrom(AnnotatedElement annotatedElement) {
+    Optional<javax.transaction.Transactional> jtaTransactional =
+        Optional.ofNullable(annotatedElement.getAnnotation(javax.transaction.Transactional.class));
+    Optional<Transactional> guiceTransactional =
+        Optional.ofNullable(annotatedElement.getAnnotation(Transactional.class));
+
+    if (jtaTransactional.isPresent()) {
+      return Optional.of(
+          TransactionalMetadata.fromJtaTranscational(jtaTransactional.get()));
+    }
+
+    if (guiceTransactional.isPresent()) {
+      return Optional.of(
+          TransactionalMetadata.fromGuiceTranscational(guiceTransactional.get()));
+    }
+
+    return Optional.empty();
   }
 }

@@ -33,7 +33,7 @@ import javax.persistence.EntityManager;
 
 /**
  * This test asserts class level @Transactional annotation behavior.
- *
+ * <p/>
  * Class-level @Transactional is a shortcut if all non-private methods in the class are meant to be
  * transactional.
  *

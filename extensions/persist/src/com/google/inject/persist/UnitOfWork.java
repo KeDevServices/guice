@@ -54,4 +54,11 @@ public interface UnitOfWork {
    * Transaction semantics are not affected.
    */
   void end();
+
+
+  void suspend();
+
+  void resume();
+
+  boolean isWorking();
 }

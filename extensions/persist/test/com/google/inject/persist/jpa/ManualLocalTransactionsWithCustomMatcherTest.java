@@ -69,9 +69,9 @@ public class ManualLocalTransactionsWithCustomMatcherTest extends TestCase {
         .runOperationInTxn2();
 
     //persisted entity should remain in the same em (which should still be open)
-    assertTrue("EntityManager  appears to have been closed across txns!",
+    assertTrue("EntityManager appears to have been closed across txns!",
         injector.getInstance(EntityManager.class).contains(entity));
-    assertTrue("EntityManager  appears to have been closed across txns!", em.contains(entity));
+    assertTrue("EntityManager appears to have been closed across txns!", em.contains(entity));
     assertTrue("EntityManager appears to have been closed across txns!", em.isOpen());
 
     injector.getInstance(UnitOfWork.class).end();

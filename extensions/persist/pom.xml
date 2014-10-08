@@ -20,6 +20,14 @@
       <version>1.0</version>
       <scope>provided</scope>
     </dependency>
+
+    <!-- Use javax.transaction.Transactional annotation from JTA1.2 Definition -->
+    <dependency>
+        <groupId>javax.transaction</groupId>
+        <artifactId>javax.transaction-api</artifactId>
+        <version>1.2</version>
+    </dependency>
+
     <dependency>
       <groupId>javax.servlet</groupId>
       <artifactId>servlet-api</artifactId>

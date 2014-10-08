@@ -30,6 +30,7 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 import java.util.Properties;
+import java.util.Stack;
 
 import javax.persistence.EntityManager;
 import javax.persistence.EntityManagerFactory;
@@ -40,7 +41,7 @@ import javax.persistence.Persistence;
  */
 @Singleton
 class JpaPersistService implements Provider<EntityManager>, UnitOfWork, PersistService {
-  private final ThreadLocal<EntityManager> entityManager = new ThreadLocal<EntityManager>();
+  private final ThreadLocal<Stack<EntityManager>> entityManager = new ThreadLocal<Stack<EntityManager>>();
 
   private final String persistenceUnitName;
   private final Properties persistenceProperties;
@@ -57,7 +58,7 @@ class JpaPersistService implements Provider<EntityManager>, UnitOfWork, PersistS
       begin();
     }
 
-    EntityManager em = entityManager.get();
+    EntityManager em = entityManager.get().peek();
     Preconditions.checkState(null != em, "Requested EntityManager outside work unit. "
         + "Try calling UnitOfWork.begin() first, or use a PersistFilter if you "
         + "are inside a servlet environment.");
@@ -69,24 +70,50 @@ class JpaPersistService implements Provider<EntityManager>, UnitOfWork, PersistS
     return entityManager.get() != null;
   }
 
+  /**
+   * Suspends the current EntityManager and creates a new one on top of the stack
+   */
+  public void suspend() {
+    Preconditions.checkState(isWorking(), "Work never begun.");
+
+    Stack<EntityManager> stack = entityManager.get();
+    stack.push(emFactory.createEntityManager());
+  }
+
+  /**
+   * Stops the current EntityManager and removes them from the stack
+   * the underlying EntityManager is resumed.
+   */
+  public void resume() {
+    Preconditions.checkState(isWorking(), "Work never begun.");
+
+    Stack<EntityManager> stack = entityManager.get();
+    EntityManager current = stack.pop();
+    current.close();
+  }
+
   public void begin() {
-    Preconditions.checkState(null == entityManager.get(),
+    Preconditions.checkState(!isWorking(),
         "Work already begun on this thread. Looks like you have called UnitOfWork.begin() twice"
          + " without a balancing call to end() in between.");
 
-    entityManager.set(emFactory.createEntityManager());
+    Stack<EntityManager> stack = new Stack<EntityManager>();
+    stack.push(emFactory.createEntityManager());
+    entityManager.set(stack);
   }
 
   public void end() {
-    EntityManager em = entityManager.get();
-
     // Let's not penalize users for calling end() multiple times.
-    if (null == em) {
+    if (!isWorking()) {
       return;
     }
 
+    Stack<EntityManager> ems = entityManager.get();
+
     try {
-      em.close();
+      for (EntityManager em : ems) {
+        em.close();
+      }
     }
     finally {
       entityManager.remove();

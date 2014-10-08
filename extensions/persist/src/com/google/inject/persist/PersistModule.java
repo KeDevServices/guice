@@ -37,13 +37,17 @@ public abstract class PersistModule extends AbstractModule {
 
     requireBinding(PersistService.class);
     requireBinding(UnitOfWork.class);
+
     /*if[AOP]*/
     // wrapping in an if[AOP] just to allow this to compile in NO_AOP -- it won't be used
     
     // class-level @Transacational
     bindInterceptor(annotatedWith(Transactional.class), any(), getTransactionInterceptor());
+    bindInterceptor(annotatedWith(javax.transaction.Transactional.class), any(), getTransactionInterceptor());
     // method-level @Transacational
     bindInterceptor(any(), annotatedWith(Transactional.class), getTransactionInterceptor());
+    bindInterceptor(any(), annotatedWith(javax.transaction.Transactional.class), getTransactionInterceptor());
+
     /*end[AOP]*/
   }
 

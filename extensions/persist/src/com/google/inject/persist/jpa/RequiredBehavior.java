@@ -62,12 +62,11 @@ final class RequiredBehavior extends TransactionalBehavior {
     final EntityTransaction txn = em.getTransaction();
     txn.begin();
 
+    Object result;
     try {
-      Object result = methodInvocation.proceed();
-      txn.commit();
-      return result;
+      result = methodInvocation.proceed();
     } catch (Exception e) {
-      //commit transaction only if rollback didnt occur
+      //commit transaction only if rollback didn't occur
       if (rollbackIfNecessary(e, txn)) {
         txn.commit();
       }
@@ -75,10 +74,24 @@ final class RequiredBehavior extends TransactionalBehavior {
       //propagate whatever exception is thrown anyway
       throw e;
     } finally {
+      // Close the em if necessary (guarded so this code doesn't run unless catch fired).
+      if (didIStartWorkUnit && !txn.isActive()) {
+        unitOfWork.end();
+      }
+    }
+
+    //everything was normal so commit the txn (do not move into try block above as it
+    //  interferes with the advised method's throwing semantics)
+    try {
+      txn.commit();
+    } finally {
+      //close the em if necessary
       if (didIStartWorkUnit) {
         unitOfWork.end();
       }
     }
+
+    //or return result
+    return result;
   }
 }
-

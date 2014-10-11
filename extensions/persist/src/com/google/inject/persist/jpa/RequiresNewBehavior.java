@@ -65,12 +65,11 @@ final class RequiresNewBehavior extends TransactionalBehavior {
     final EntityTransaction txn = emProvider.get().getTransaction();
     txn.begin();
 
+    Object result;
     try {
-      Object result = methodInvocation.proceed();
-      txn.commit();
-      return result;
+      result = methodInvocation.proceed();
     } catch (Exception e) {
-      //commit transaction only if rollback didnt occur
+      //commit transaction only if rollback didn't occur
       if (rollbackIfNecessary(e, txn)) {
         txn.commit();
       }
@@ -78,16 +77,36 @@ final class RequiresNewBehavior extends TransactionalBehavior {
       //propagate whatever exception is thrown anyway
       throw e;
     } finally {
-      if (didISuspendTransaction) {
-        unitOfWork.resume();
+      // (guarded so this code doesn't run unless catch fired).
+      if (!txn.isActive()) {
+        close(didISuspendTransaction, didIStartWorkUnit, unitOfWork);
       }
+    }
 
-      // Close the em if necessary (guarded so this code doesn't run unless catch fired).
-      if (didIStartWorkUnit) {
-        unitOfWork.end();
-      }
+    //everything was normal so commit the txn (do not move into try block above as it
+    //  interferes with the advised method's throwing semantics)
+    try {
+      txn.commit();
+    } finally {
+      close(didISuspendTransaction, didIStartWorkUnit, unitOfWork);
+    }
 
+    //or return result
+    return result;
+  }
 
+  private void close(
+      boolean didISuspendTransaction,
+      boolean didIStartWorkUnit,
+      UnitOfWork unitOfWork) {
+    // Resume
+    if (didISuspendTransaction) {
+      unitOfWork.resume();
+    }
+
+    // Close the em if necessary
+    if (didIStartWorkUnit) {
+      unitOfWork.end();
     }
   }
 }

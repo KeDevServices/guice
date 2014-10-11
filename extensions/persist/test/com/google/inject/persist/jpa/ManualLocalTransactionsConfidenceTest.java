@@ -20,7 +20,6 @@ import com.google.inject.Guice;
 import com.google.inject.Inject;
 import com.google.inject.Injector;
 import com.google.inject.persist.PersistService;
-import com.google.inject.persist.Transactional;
 
 import junit.framework.TestCase;
 
@@ -28,6 +27,8 @@ import java.util.Date;
 
 import javax.persistence.EntityManager;
 import javax.persistence.PersistenceException;
+
+import static javax.transaction.Transactional.TxType.REQUIRES_NEW;
 
 /**
  * @author Dhanji R. Prasanna (dhanji@gmail.com)
@@ -52,12 +53,35 @@ public class ManualLocalTransactionsConfidenceTest extends TestCase {
     injector.getInstance(PersistService.class).stop();
   }
 
-  public void testThrowingCleanupInterceptorConfidence() {
+  //Test for TxType.REQUIRED
+  public void testThrowingCleanupInterceptorConfidence1() {
     Exception e = null;
     try {
       System.out.println(
           "\n\n******************************* EXPECTED EXCEPTION NORMAL TEST BEHAVIOR **********");
-      injector.getInstance(TransactionalObject.class).runOperationInTxn();
+      injector.getInstance(TransactionalObject.class).runOperationInTxn1();
+      fail();
+    } catch (RuntimeException re) {
+      e = re;
+      System.out.println(
+          "\n\n******************************* EXPECTED EXCEPTION NORMAL TEST BEHAVIOR **********");
+      re.printStackTrace(System.out);
+      System.out.println(
+          "\n\n**********************************************************************************");
+    }
+
+    assertNotNull("No exception was thrown!", e);
+    assertTrue("Exception thrown was not what was expected (i.e. commit-time)",
+        e instanceof PersistenceException);
+  }
+
+  //Test for TxType.REQUIRES_NEW
+  public void testThrowingCleanupInterceptorConfidence2() {
+    Exception e = null;
+    try {
+      System.out.println(
+          "\n\n******************************* EXPECTED EXCEPTION NORMAL TEST BEHAVIOR **********");
+      injector.getInstance(TransactionalObject.class).runOperationInTxn2();
       fail();
     } catch (RuntimeException re) {
       e = re;
@@ -76,8 +100,17 @@ public class ManualLocalTransactionsConfidenceTest extends TestCase {
   public static class TransactionalObject {
     @Inject EntityManager em;
 
-    @Transactional
-    public void runOperationInTxn() {
+    @com.google.inject.persist.Transactional
+    public void runOperationInTxn1() {
+      operations();
+    }
+
+    @javax.transaction.Transactional(REQUIRES_NEW)
+    public void runOperationInTxn2() {
+      operations();
+    }
+
+    public void operations() {
       JpaParentTestEntity entity = new JpaParentTestEntity();
       JpaTestEntity child = new JpaTestEntity();
 

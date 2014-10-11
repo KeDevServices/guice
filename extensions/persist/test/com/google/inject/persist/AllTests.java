@@ -39,8 +39,10 @@ public class AllTests {
     suite.addTestSuite(JpaWorkManagerTest.class);
     suite.addTestSuite(ManagedLocalTransactionsAcrossRequestTest.class);
     suite.addTestSuite(ManagedLocalTransactionsTest.class);
+    suite.addTestSuite(ManualLocalTransactionsConfidenceTest.class);
     suite.addTestSuite(ManualLocalTransactionsTest.class);
     suite.addTestSuite(ManualLocalTransactionsWithCustomMatcherTest.class);
+
     suite.addTestSuite(RequiresNewBehaviorTest.class);
 
     return suite;

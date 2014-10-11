@@ -15,6 +15,7 @@
  */
 package com.google.inject.persist.jpa;
 
+import com.google.common.base.Optional;
 import com.google.inject.Inject;
 import com.google.inject.Provider;
 import com.google.inject.persist.Transactional;
@@ -25,7 +26,6 @@ import org.aopalliance.intercept.MethodInvocation;
 
 import java.lang.reflect.AnnotatedElement;
 import java.lang.reflect.Method;
-import java.util.Optional;
 
 import javax.persistence.EntityManager;
 
@@ -78,9 +78,9 @@ class JpaLocalTxnInterceptor implements MethodInterceptor {
 
   private Optional<TransactionalMetadata> readTransactionalFrom(AnnotatedElement annotatedElement) {
     Optional<javax.transaction.Transactional> jtaTransactional =
-        Optional.ofNullable(annotatedElement.getAnnotation(javax.transaction.Transactional.class));
+        Optional.fromNullable(annotatedElement.getAnnotation(javax.transaction.Transactional.class));
     Optional<Transactional> guiceTransactional =
-        Optional.ofNullable(annotatedElement.getAnnotation(Transactional.class));
+        Optional.fromNullable(annotatedElement.getAnnotation(Transactional.class));
 
     if (jtaTransactional.isPresent()) {
       return Optional.of(
@@ -92,6 +92,6 @@ class JpaLocalTxnInterceptor implements MethodInterceptor {
           TransactionalMetadata.fromGuiceTranscational(guiceTransactional.get()));
     }
 
-    return Optional.empty();
+    return Optional.absent();
   }
 }

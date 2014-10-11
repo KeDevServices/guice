@@ -16,8 +16,19 @@
 
 package com.google.inject.persist.jpa;
 
+import junit.framework.TestCase;
+
 /**
  * @author Joachim Klein (jk@kedev.eu, luno1977@gmail.com)
  */
-public class RequiredBehaviorTest {
+public class RequiredBehaviorTest extends TestCase {
+
+
+  public void testSomethingInFuture() {
+    try {
+      throw new IllegalStateException("Not implemented");
+    } catch (Exception e) {
+      //ok
+    }
+  }
 }

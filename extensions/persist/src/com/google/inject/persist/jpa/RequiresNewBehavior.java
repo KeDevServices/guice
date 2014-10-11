@@ -86,6 +86,8 @@ final class RequiresNewBehavior extends TransactionalBehavior {
       if (didIStartWorkUnit) {
         unitOfWork.end();
       }
+
+
     }
   }
 }

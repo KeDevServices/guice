@@ -77,8 +77,10 @@ class JpaPersistService implements Provider<EntityManager>, UnitOfWork, PersistS
   public void suspend() {
     Preconditions.checkState(isWorking(), "Work never begun.");
 
+
     Stack<EntityManager> stack = entityManager.get();
     stack.push(emFactory.createEntityManager());
+    entityManager.set(stack);
   }
 
   /**
@@ -90,6 +92,7 @@ class JpaPersistService implements Provider<EntityManager>, UnitOfWork, PersistS
 
     Stack<EntityManager> stack = entityManager.get();
     EntityManager current = stack.pop();
+    entityManager.set(stack);
     current.close();
   }
 

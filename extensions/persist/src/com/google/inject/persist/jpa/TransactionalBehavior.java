@@ -15,12 +15,15 @@
  */
 package com.google.inject.persist.jpa;
 
+import com.google.common.collect.Lists;
 import com.google.inject.Provider;
 import com.google.inject.persist.UnitOfWork;
 import org.aopalliance.intercept.MethodInvocation;
 
 import javax.persistence.EntityManager;
 import javax.persistence.EntityTransaction;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * @author Joachim Klein (jk@kedev.eu, luno1977@gmail.com)
@@ -61,8 +64,20 @@ abstract class TransactionalBehavior {
   protected boolean rollbackIfNecessary(Exception e, EntityTransaction txn) {
     boolean commit = true;
 
+    List<Class<? extends Exception>> rollbackOnList =
+        Lists.<Class<? extends Exception>>newArrayList(transactionalMetadata.getRollbackOn());
+    /*
+     Form JTA 1.2 Spec (jk@keDev.eu):
+     By default checked exceptions do not result in the transactional interceptor
+     marking the transaction for rollback and instances of RuntimeException and its
+     subclasses do.
+    */
+    if (rollbackOnList.isEmpty()) {
+      rollbackOnList.add(RuntimeException.class);
+    }
+
     //check rollback clauses
-    for (Class<? extends Exception> rollBackOn : transactionalMetadata.getRollbackOn()) {
+    for (Class<? extends Exception> rollBackOn : rollbackOnList) {
 
       //if one matched, try to perform a rollback
       if (rollBackOn.isInstance(e)) {

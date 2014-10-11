@@ -56,9 +56,26 @@ public interface UnitOfWork {
   void end();
 
 
+  /**
+   * Suspends the current session to the data layer and opens a new one.
+   * <p></p>
+   * A session to the data layer must be open, i.e. isWorking() would return true.
+   */
   void suspend();
 
+  /**
+   * Stops the work on the current session and resumes the old one previously suspended.
+   * <p></p>
+   * A session to the data layer must be open, i.e. isWorking() would return true.
+   * Calling resume with no corresponding call to suspend() before causes a InvalidStateException.
+   */
   void resume();
 
+  /**
+   * Indicates whenever a session to the data layer exists.
+   * Suspend() and resume() didn't change the status of working.
+   *
+   * @return true, if a session is open, otherwise false.
+   */
   boolean isWorking();
 }

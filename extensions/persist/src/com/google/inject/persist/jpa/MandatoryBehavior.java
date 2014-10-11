@@ -30,7 +30,6 @@ import javax.transaction.TransactionalException;
  * <p>If called inside a transaction context, managed bean method execution will
  * then continue under that context.</p>
  *
- *
  * @author Joachim Klein (jk@kedev.eu, luno1977@gmail.com)
  */
 final class MandatoryBehavior extends TransactionalBehavior {

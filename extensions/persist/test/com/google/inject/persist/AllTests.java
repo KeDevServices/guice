@@ -16,17 +16,7 @@
 
 package com.google.inject.persist;
 
-import com.google.inject.persist.jpa.ClassLevelManagedLocalTransactionsTest;
-import com.google.inject.persist.jpa.CustomPropsEntityManagerFactoryProvisionTest;
-import com.google.inject.persist.jpa.EntityManagerFactoryProvisionTest;
-import com.google.inject.persist.jpa.EntityManagerPerRequestProvisionTest;
-import com.google.inject.persist.jpa.EntityManagerProvisionTest;
-import com.google.inject.persist.jpa.JoiningLocalTransactionsTest;
-import com.google.inject.persist.jpa.JpaWorkManagerTest;
-import com.google.inject.persist.jpa.ManagedLocalTransactionsAcrossRequestTest;
-import com.google.inject.persist.jpa.ManagedLocalTransactionsTest;
-import com.google.inject.persist.jpa.ManualLocalTransactionsTest;
-import com.google.inject.persist.jpa.ManualLocalTransactionsWithCustomMatcherTest;
+import com.google.inject.persist.jpa.*;
 
 import junit.framework.Test;
 import junit.framework.TestSuite;
@@ -51,6 +41,7 @@ public class AllTests {
     suite.addTestSuite(ManagedLocalTransactionsTest.class);
     suite.addTestSuite(ManualLocalTransactionsTest.class);
     suite.addTestSuite(ManualLocalTransactionsWithCustomMatcherTest.class);
+    suite.addTestSuite(RequiresNewBehaviorTest.class);
 
     return suite;
   }

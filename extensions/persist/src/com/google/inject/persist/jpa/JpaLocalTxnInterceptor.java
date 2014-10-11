@@ -48,7 +48,7 @@ class JpaLocalTxnInterceptor implements MethodInterceptor {
   }
 
   /**
-   * Reads the TransactionalBehavior given by {@link com.google.inject.persist.Transactional} or
+   * Reads the TransactionalMetadata given by {@link com.google.inject.persist.Transactional} or
    * {@link javax.transaction.Transactional}.
    *
    * Method level takes precedence over class level.

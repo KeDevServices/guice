@@ -26,6 +26,7 @@ import junit.framework.TestCase;
 
 import javax.persistence.EntityManager;
 import javax.persistence.EntityManagerFactory;
+import javax.persistence.EntityTransaction;
 import javax.persistence.NoResultException;
 import javax.transaction.Transactional;
 import java.util.Date;
@@ -36,18 +37,6 @@ import static javax.transaction.Transactional.TxType.REQUIRES_NEW;
  * @author Joachim Klein (jk@kedev.eu, luno1977@gmail.com)
  */
 public class RequiresNewBehaviorTest extends TestCase {
-
-
-  //Test if new tx is created if no transaction is active
-  //in this case the stack of EntityManager in UnitOfWork need to have size < 2
-
-  //Test if new tx is created and old tx is suspended if a transaction is active
-  //in this case the stack of EntityManager in UnitOfWork need to have size > 1
-
-  //Test if rollback behavior of trasactional method is used
-  //  if no transaction was active
-  //  if transaction was active
-
 
   private Injector injector;
   private static final String UNIQUE_TEXT_1 = "some unique text" + new Date();
@@ -66,13 +55,41 @@ public class RequiresNewBehaviorTest extends TestCase {
     injector.getInstance(EntityManagerFactory.class).close();
   }
 
+  /**
+   * Test if new tx is created if no transaction is active
+   */
+  public void testStartOfTransaction() throws Exception {
+    assertTrue(!injector.getInstance(EntityManager.class).getTransaction().isActive());
+
+    injector
+        .getInstance(RequiresNewBehaviorTest.TransactionalObject.class)
+        .runOperationInTxn2();
+
+    injector.getInstance(UnitOfWork.class).end();
+  }
+
+  /**
+   * Test if new tx is created and old tx is suspended if a transaction is active
+   */
+  public void testStartOfNewTransaction() throws Exception {
+    injector
+        .getInstance(RequiresNewBehaviorTest.TransactionalObject.class)
+        .runOperationInTxn3();
+
+    injector.getInstance(UnitOfWork.class).end();
+  }
+
+  /**
+   * When nested transaction fails (throws an exception) the parent transaction
+   * need to be commited.
+   */
   public void testIndependenceOfTransactions() {
     Provider<EntityManager> em = injector.getProvider(EntityManager.class);
 
     try {
       injector
           .getInstance(RequiresNewBehaviorTest.TransactionalObject.class)
-          .runTxn2();
+          .runOperationInTxn1();
     } catch (Exception ise) {
       System.out.println("Yepp that thing is kept!");
       //Thats ok here!
@@ -81,17 +98,17 @@ public class RequiresNewBehaviorTest extends TestCase {
 
     //test that the data has been stored
     Object result = em.get().createQuery("from JpaTestEntity where text = :text")
-        .setParameter("text", UNIQUE_TEXT_2).getSingleResult();
+        .setParameter("text", UNIQUE_TEXT_1).getSingleResult();
     injector.getInstance(UnitOfWork.class).end();
 
     assertTrue("odd result returned fatal", result instanceof JpaTestEntity);
     assertEquals("queried entity did not match--did automatic txn fail?",
-        UNIQUE_TEXT_2, ((JpaTestEntity) result).getText());
+        UNIQUE_TEXT_1, ((JpaTestEntity) result).getText());
 
     NoResultException noResult = null;
     try {
       Object result2 = em.get().createQuery("from JpaTestEntity2 where text = :text")
-          .setParameter("text", "Some text for test entity 2").getSingleResult();
+          .setParameter("text", UNIQUE_TEXT_2).getSingleResult();
 
     } catch (NoResultException nre) {
       noResult = nre;
@@ -106,22 +123,66 @@ public class RequiresNewBehaviorTest extends TestCase {
     @Inject
     Provider<EntityManager> em;
 
+    @Transactional(REQUIRES_NEW)
+    public void runOperationInTxn1() throws Exception {
+      JpaTestEntity entity = new JpaTestEntity();
+      entity.setText(UNIQUE_TEXT_1);
+      em.get().persist(entity);
+
+      runNestedOperationTxnThatFails();
+    }
+
     @Transactional(value = REQUIRES_NEW, rollbackOn = Exception.class)
-    public JpaTestEntity2 runTxnInside() throws Exception {
+    public void runNestedOperationTxnThatFails() throws Exception {
       JpaTestEntity2 entity = new JpaTestEntity2();
-      entity.setText("Some text for test entity 2");
+      entity.setText(UNIQUE_TEXT_2);
       em.get().persist(entity);
 
       throw new Exception("You can not ... no!");
     }
 
     @Transactional(REQUIRES_NEW)
-    public void runTxn2() throws Exception {
+    public void runOperationInTxn2() {
+      assertTrue(em.get().getTransaction().isActive());
+    }
+
+    @Transactional(REQUIRES_NEW)
+    public void runOperationInTxn3() {
+      EntityManager manager = em.get();
+      EntityTransaction txn = manager.getTransaction();
+
       JpaTestEntity entity = new JpaTestEntity();
+      entity.setText(UNIQUE_TEXT_1);
+      em.get().persist(entity);
+
+      assertTrue(manager.contains(entity));
+      assertTrue(txn.isActive());
+
+      runNestedOperationTxn(manager, txn, entity);
+    }
+
+    @Transactional(REQUIRES_NEW)
+    public void runNestedOperationTxn(
+        final EntityManager parentManager,
+        final EntityTransaction parentTxn,
+        final JpaTestEntity parentEntity) {
+
+      EntityManager manager = em.get();
+      EntityTransaction txn = manager.getTransaction();
+
+      JpaTestEntity2 entity = new JpaTestEntity2();
       entity.setText(UNIQUE_TEXT_2);
       em.get().persist(entity);
 
-      runTxnInside();
+      assertTrue(manager != parentManager);
+      assertTrue(txn != parentTxn);
+
+      assertTrue(txn.isActive());
+      assertTrue(parentTxn.isActive()); //still active!
+
+      assertTrue(manager.contains(entity));
+      assertTrue(!manager.contains(parentEntity));
+      assertTrue(!parentManager.contains(entity));
     }
   }
 }

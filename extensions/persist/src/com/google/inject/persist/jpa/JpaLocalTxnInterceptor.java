@@ -42,6 +42,15 @@ class JpaLocalTxnInterceptor implements MethodInterceptor {
   private final UnitOfWork unitOfWork = null;
 
   public Object invoke(MethodInvocation methodInvocation) throws Throwable {
+    /*
+      Possible performance improvements:
+      a) cache TransactionalMetadata instances per method
+      b) Refactor field transactionalMetadata in TransactionalBehavior as ThreadLocal to
+         allow static instances of sub behaviors (RequiredBehavior, ...)
+
+      Decision: Unnecessary complicated at the moment (Joachim Klein, jk@kedev.eu)
+     */
+
     TransactionalMetadata transactionalMetadata = readTransactionalMetadata(methodInvocation);
     TransactionalBehavior transactionalBehavior = TransactionalBehavior.from(transactionalMetadata);
     return transactionalBehavior.handleInvocation(methodInvocation, emProvider, unitOfWork);

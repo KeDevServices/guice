@@ -30,13 +30,13 @@ import java.util.List;
  */
 abstract class TransactionalBehavior {
 
-  private TransactionalMetadata transactionalMetadata;
+  private final TransactionalMetadata transactionalMetadata;
 
-  protected TransactionalBehavior(TransactionalMetadata transactionalMetadata) {
+  protected TransactionalBehavior(final TransactionalMetadata transactionalMetadata) {
     this.transactionalMetadata = transactionalMetadata;
   }
 
-  public static TransactionalBehavior from(TransactionalMetadata transactionalMetadata) {
+  public static TransactionalBehavior from(final TransactionalMetadata transactionalMetadata) {
     switch (transactionalMetadata.getTxType()) {
       case REQUIRED:
         return new RequiredBehavior(transactionalMetadata);
@@ -55,14 +55,28 @@ abstract class TransactionalBehavior {
     throw new IllegalStateException("Unknown TxType not handled.");
   }
 
+
   /**
-   * Returns True if rollback DID NOT HAPPEN (i.e. if commit should continue).
+   * Decides if a transaction need to be rollback or can be commited
+   * if a exception was thrown.
    *
-   * @param e The exception to test for rollback
-   * @param txn A JPA Transaction to issue rollbacks on
+   * @param e the exception that was thrown during transactional method execution
+   * @param txn the current (active) transaction
    */
-  protected boolean rollbackIfNecessary(Exception e, EntityTransaction txn) {
-    boolean commit = true;
+  protected void rollbackOrCommit(final Exception e, final EntityTransaction txn) {
+    if (isRollbackNecessary(e)) {
+      txn.rollback();
+    } else {
+      txn.commit();
+    }
+  }
+
+  /**
+   * @return true, if rollback need to be executed.
+   * @param e The exception to test for rollback
+   */
+  private boolean isRollbackNecessary(final Exception e) {
+    boolean rollback = false;
 
     List<Class<? extends Exception>> rollbackOnList =
         Lists.<Class<? extends Exception>>newArrayList(transactionalMetadata.getRollbackOn());
@@ -81,21 +95,16 @@ abstract class TransactionalBehavior {
 
       //if one matched, try to perform a rollback
       if (rollBackOn.isInstance(e)) {
-        commit = false;
+        rollback = true;
 
         //check ignore clauses (supercedes rollback clause)
         for (Class<? extends Exception> exceptOn : transactionalMetadata.getDontRollbackOn()) {
           //An exception to the rollback clause was found, DON'T rollback
           // (i.e. commit and throw anyway)
           if (exceptOn.isInstance(e)) {
-            commit = true;
+            rollback = false;
             break;
           }
-        }
-
-        //rollback only if nothing matched the ignore check
-        if (!commit) {
-          txn.rollback();
         }
 
         //otherwise continue to commit
@@ -103,7 +112,7 @@ abstract class TransactionalBehavior {
       }
     }
 
-    return commit;
+    return rollback;
   }
 
   abstract Object handleInvocation(MethodInvocation methodInvocation,

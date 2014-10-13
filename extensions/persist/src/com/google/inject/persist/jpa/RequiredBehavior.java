@@ -66,10 +66,8 @@ final class RequiredBehavior extends TransactionalBehavior {
     try {
       result = methodInvocation.proceed();
     } catch (Exception e) {
-      //commit transaction only if rollback didn't occur
-      if (rollbackIfNecessary(e, txn)) {
-        txn.commit();
-      }
+      //commit or rollack transaction
+      rollbackOrCommit(e, txn);
 
       //propagate whatever exception is thrown anyway
       throw e;

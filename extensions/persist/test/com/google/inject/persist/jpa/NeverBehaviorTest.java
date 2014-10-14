@@ -27,13 +27,18 @@ import junit.framework.TestCase;
 import javax.persistence.EntityManager;
 import javax.persistence.EntityManagerFactory;
 import javax.persistence.EntityTransaction;
+import javax.transaction.InvalidTransactionException;
+import javax.transaction.TransactionRequiredException;
 import javax.transaction.Transactional;
+import javax.transaction.TransactionalException;
 import java.util.Date;
+
+import static javax.transaction.Transactional.TxType.NEVER;
 
 /**
  * @author Joachim Klein (jk@kedev.eu, luno1977@gmail.com)
  */
-public class RequiredBehaviorTest extends TestCase {
+public class NeverBehaviorTest extends TestCase {
 
   private Injector injector;
   private static final String UNIQUE_TEXT_1 = "some unique text" + new Date();
@@ -53,55 +58,47 @@ public class RequiredBehaviorTest extends TestCase {
   }
 
   /**
-   * Test if new tx is created if no transaction is active
+   * Test to ensure:
+   * If called outside a transaction context, managed bean method execution
+   * must then continue outside a transaction context.
    */
-  public void testStartOfTransaction() throws Exception {
+  public void testTransactionDoNotStartedOutsideTransactionContext() throws Exception {
     assertTrue(!injector.getInstance(EntityManager.class).getTransaction().isActive());
 
     injector
-        .getInstance(RequiredBehaviorTest.TransactionalObject.class)
+        .getInstance(NeverBehaviorTest.TransactionalObject.class)
         .runOperationInTxn1();
 
     injector.getInstance(UnitOfWork.class).end();
   }
 
   /**
-   * Test if already active transaction is joined
+   * Test to ensure:
+   * If called inside a transaction context, a TransactionalException with
+   * a nested InvalidTransactionException must be thrown.
    */
-  public void testJoiningOfTransaction() throws Exception {
-    Provider<EntityManager> em = injector.getProvider(EntityManager.class);
+  public void testIfTransactionalExceptionInsideTransactionContext() throws Exception {
+    assertTrue(!injector.getInstance(EntityManager.class).getTransaction().isActive());
 
-    injector
-        .getInstance(RequiredBehaviorTest.TransactionalObject.class)
-        .runOperationInTxn2();
+    try {
+      injector
+          .getInstance(NeverBehaviorTest.TransactionalObject.class)
+          .runOperationInTxn2();
+    } catch (Exception e) {
+      assertTrue(e instanceof TransactionalException);
+      assertTrue(e.getCause() instanceof InvalidTransactionException);
+    }
 
     injector.getInstance(UnitOfWork.class).end();
-
-    //test that the data has been stored
-    Object result1 = em.get().createQuery("from JpaTestEntity where text = :text")
-        .setParameter("text", UNIQUE_TEXT_1).getSingleResult();
-    injector.getInstance(UnitOfWork.class).end();
-
-    assertTrue("odd result returned fatal", result1 instanceof JpaTestEntity);
-    assertEquals("queried entity did not match--did automatic txn fail?",
-        UNIQUE_TEXT_1, ((JpaTestEntity) result1).getText());
-
-    Object result2 = em.get().createQuery("from JpaTestEntity2 where text = :text")
-        .setParameter("text", UNIQUE_TEXT_2).getSingleResult();
-    injector.getInstance(UnitOfWork.class).end();
-
-    assertTrue("odd result returned fatal", result2 instanceof JpaTestEntity2);
-    assertEquals("queried entity did not match--did automatic txn fail?",
-        UNIQUE_TEXT_2, ((JpaTestEntity2) result2).getText());
   }
 
   public static class TransactionalObject {
     @Inject
     Provider<EntityManager> em;
 
-    @Transactional
+    @Transactional(NEVER)
     public void runOperationInTxn1() {
-      assertTrue(em.get().getTransaction().isActive());
+      assertTrue(!em.get().getTransaction().isActive());
     }
 
     @Transactional
@@ -117,28 +114,18 @@ public class RequiredBehaviorTest extends TestCase {
       assertTrue(txn.isActive());
 
       runNestedOperationTxn(manager, txn, entity);
+
+      assertTrue(!txn.isActive());
     }
 
-    @Transactional
+    @Transactional(NEVER)
     public void runNestedOperationTxn(
         final EntityManager parentManager,
         final EntityTransaction parentTxn,
         final JpaTestEntity parentEntity) {
 
-      EntityManager manager = em.get();
-      EntityTransaction txn = manager.getTransaction();
-
-      JpaTestEntity2 entity = new JpaTestEntity2();
-      entity.setText(UNIQUE_TEXT_2);
-      em.get().persist(entity);
-
-      assertTrue(manager == parentManager);
-      assertTrue(txn == parentTxn);
-
-      assertTrue(txn.isActive()); //txn == parentTxn still active
-
-      assertTrue(manager.contains(entity));
-      assertTrue(manager.contains(parentEntity));
+      fail(); //Do not execute this!
     }
   }
 }
+

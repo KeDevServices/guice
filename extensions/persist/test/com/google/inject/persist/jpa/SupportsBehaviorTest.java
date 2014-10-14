@@ -30,10 +30,12 @@ import javax.persistence.EntityTransaction;
 import javax.transaction.Transactional;
 import java.util.Date;
 
+import static javax.transaction.Transactional.TxType.SUPPORTS;
+
 /**
  * @author Joachim Klein (jk@kedev.eu, luno1977@gmail.com)
  */
-public class RequiredBehaviorTest extends TestCase {
+public class SupportsBehaviorTest extends TestCase {
 
   private Injector injector;
   private static final String UNIQUE_TEXT_1 = "some unique text" + new Date();
@@ -53,55 +55,40 @@ public class RequiredBehaviorTest extends TestCase {
   }
 
   /**
-   * Test if new tx is created if no transaction is active
+   * Test to ensure:
+   * If called outside a transaction context, managed bean method execution
+   * must then continue outside a transaction context.
    */
-  public void testStartOfTransaction() throws Exception {
+  public void testTransactionDoNotStartedOutsideTransactionContext() throws Exception {
     assertTrue(!injector.getInstance(EntityManager.class).getTransaction().isActive());
 
     injector
-        .getInstance(RequiredBehaviorTest.TransactionalObject.class)
+        .getInstance(SupportsBehaviorTest.TransactionalObject.class)
         .runOperationInTxn1();
 
     injector.getInstance(UnitOfWork.class).end();
   }
 
   /**
-   * Test if already active transaction is joined
+   * Test to ensure:
+   * If called inside a transaction context, the managed bean method execution must then continue inside
+   * this transaction context. (Test if already active transaction is joined)
    */
   public void testJoiningOfTransaction() throws Exception {
-    Provider<EntityManager> em = injector.getProvider(EntityManager.class);
-
     injector
-        .getInstance(RequiredBehaviorTest.TransactionalObject.class)
+        .getInstance(SupportsBehaviorTest.TransactionalObject.class)
         .runOperationInTxn2();
 
     injector.getInstance(UnitOfWork.class).end();
-
-    //test that the data has been stored
-    Object result1 = em.get().createQuery("from JpaTestEntity where text = :text")
-        .setParameter("text", UNIQUE_TEXT_1).getSingleResult();
-    injector.getInstance(UnitOfWork.class).end();
-
-    assertTrue("odd result returned fatal", result1 instanceof JpaTestEntity);
-    assertEquals("queried entity did not match--did automatic txn fail?",
-        UNIQUE_TEXT_1, ((JpaTestEntity) result1).getText());
-
-    Object result2 = em.get().createQuery("from JpaTestEntity2 where text = :text")
-        .setParameter("text", UNIQUE_TEXT_2).getSingleResult();
-    injector.getInstance(UnitOfWork.class).end();
-
-    assertTrue("odd result returned fatal", result2 instanceof JpaTestEntity2);
-    assertEquals("queried entity did not match--did automatic txn fail?",
-        UNIQUE_TEXT_2, ((JpaTestEntity2) result2).getText());
   }
 
   public static class TransactionalObject {
     @Inject
     Provider<EntityManager> em;
 
-    @Transactional
+    @Transactional(SUPPORTS)
     public void runOperationInTxn1() {
-      assertTrue(em.get().getTransaction().isActive());
+      assertTrue(!em.get().getTransaction().isActive());
     }
 
     @Transactional
@@ -119,7 +106,7 @@ public class RequiredBehaviorTest extends TestCase {
       runNestedOperationTxn(manager, txn, entity);
     }
 
-    @Transactional
+    @Transactional(SUPPORTS)
     public void runNestedOperationTxn(
         final EntityManager parentManager,
         final EntityTransaction parentTxn,

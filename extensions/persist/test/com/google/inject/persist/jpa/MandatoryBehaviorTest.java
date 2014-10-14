@@ -27,13 +27,17 @@ import junit.framework.TestCase;
 import javax.persistence.EntityManager;
 import javax.persistence.EntityManagerFactory;
 import javax.persistence.EntityTransaction;
+import javax.transaction.TransactionRequiredException;
 import javax.transaction.Transactional;
+import javax.transaction.TransactionalException;
 import java.util.Date;
+
+import static javax.transaction.Transactional.TxType.MANDATORY;
 
 /**
  * @author Joachim Klein (jk@kedev.eu, luno1977@gmail.com)
  */
-public class RequiredBehaviorTest extends TestCase {
+public class MandatoryBehaviorTest extends TestCase {
 
   private Injector injector;
   private static final String UNIQUE_TEXT_1 = "some unique text" + new Date();
@@ -53,26 +57,35 @@ public class RequiredBehaviorTest extends TestCase {
   }
 
   /**
-   * Test if new tx is created if no transaction is active
+   * Test to ensure:
+   * If called outside a transaction context, a TransactionalException with a
+   * nested TransactionRequiredException must be thrown.
    */
-  public void testStartOfTransaction() throws Exception {
+  public void testIfTransactionalExceptionOutsideTransactionContext() throws Exception {
     assertTrue(!injector.getInstance(EntityManager.class).getTransaction().isActive());
 
-    injector
-        .getInstance(RequiredBehaviorTest.TransactionalObject.class)
-        .runOperationInTxn1();
+    try {
+      injector
+          .getInstance(MandatoryBehaviorTest.TransactionalObject.class)
+          .runOperationInTxn1();
+    } catch (Exception e) {
+      assertTrue(e instanceof TransactionalException);
+      assertTrue(e.getCause() instanceof TransactionRequiredException);
+    }
 
     injector.getInstance(UnitOfWork.class).end();
   }
 
   /**
-   * Test if already active transaction is joined
+   * Test to ensure:
+   * If called inside a transaction context, managed bean method execution will
+   * then continue under that context.
    */
   public void testJoiningOfTransaction() throws Exception {
     Provider<EntityManager> em = injector.getProvider(EntityManager.class);
 
     injector
-        .getInstance(RequiredBehaviorTest.TransactionalObject.class)
+        .getInstance(MandatoryBehaviorTest.TransactionalObject.class)
         .runOperationInTxn2();
 
     injector.getInstance(UnitOfWork.class).end();
@@ -99,9 +112,9 @@ public class RequiredBehaviorTest extends TestCase {
     @Inject
     Provider<EntityManager> em;
 
-    @Transactional
+    @Transactional(MANDATORY)
     public void runOperationInTxn1() {
-      assertTrue(em.get().getTransaction().isActive());
+      assertTrue(!em.get().getTransaction().isActive());
     }
 
     @Transactional
@@ -119,7 +132,7 @@ public class RequiredBehaviorTest extends TestCase {
       runNestedOperationTxn(manager, txn, entity);
     }
 
-    @Transactional
+    @Transactional(MANDATORY)
     public void runNestedOperationTxn(
         final EntityManager parentManager,
         final EntityTransaction parentTxn,

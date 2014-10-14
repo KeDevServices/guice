@@ -43,7 +43,12 @@ public class AllTests {
     suite.addTestSuite(ManualLocalTransactionsTest.class);
     suite.addTestSuite(ManualLocalTransactionsWithCustomMatcherTest.class);
 
+    suite.addTestSuite(RequiredBehaviorTest.class);
     suite.addTestSuite(RequiresNewBehaviorTest.class);
+    suite.addTestSuite(SupportsBehaviorTest.class);
+    suite.addTestSuite(NotSupportedBehaviorTest.class);
+    suite.addTestSuite(MandatoryBehaviorTest.class);
+    suite.addTestSuite(NeverBehaviorTest.class);
 
     return suite;
   }

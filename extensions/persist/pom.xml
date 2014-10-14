@@ -21,18 +21,19 @@
       <scope>provided</scope>
     </dependency>
 
-    <!-- Use javax.transaction.Transactional annotation from JTA1.2 Definition -->
-    <!--<dependency>-->
-        <!--<groupId>javax.transaction</groupId>-->
-        <!--<artifactId>javax.transaction-api</artifactId>-->
-        <!--<version>1.2</version>-->
-    <!--</dependency>-->
-    <!-- replaced by -->
+    <!-- Use javax.transaction.Transactional annotation from JTA1.2 Definition
+         This dependency includes java 7 class files and breaks the java6 support for guice-persist -->
     <dependency>
-        <groupId>org.jboss.spec.javax.transaction</groupId>
-        <artifactId>jboss-transaction-api_1.2_spec</artifactId>
-        <version>1.0.0.Final</version>
+        <groupId>javax.transaction</groupId>
+        <artifactId>javax.transaction-api</artifactId>
+        <version>1.2</version>
     </dependency>
+    <!-- test if the following lib is build with java 6: (negativ) -->
+    <!--<dependency>-->
+        <!--<groupId>org.jboss.spec.javax.transaction</groupId>-->
+        <!--<artifactId>jboss-transaction-api_1.2_spec</artifactId>-->
+        <!--<version>1.0.0.Final</version>-->
+    <!--</dependency>-->
 
     <dependency>
       <groupId>javax.servlet</groupId>

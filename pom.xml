@@ -60,10 +60,17 @@ See the Apache License Version 2.0 for the specific language governing permissio
     </mailingList>
   </mailingLists>
 
+  <!--<scm>-->
+    <!--<connection>scm:git:git://github.com/google/guice.git</connection>-->
+    <!--<developerConnection>scm:git:ssh://git@github.com/google/guice.git</developerConnection>-->
+    <!--<url>https://github.com/google/guice</url>-->
+  <!--</scm>-->
+
+  <!-- intermediate state to build mlp release -->
   <scm>
-    <connection>scm:git:git://github.com/google/guice.git</connection>
-    <developerConnection>scm:git:ssh://git@github.com/google/guice.git</developerConnection>
-    <url>https://github.com/google/guice</url>
+      <connection>scm:git:file:///work/bamboo/guice</connection>
+      <developerConnection>scm:git:file:///work/bamboo/guice</developerConnection>
+      <url>https://github.com/google/guice</url>
   </scm>
 
   <issueManagement>

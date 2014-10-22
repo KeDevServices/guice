@@ -77,7 +77,6 @@ class JpaPersistService implements Provider<EntityManager>, UnitOfWork, PersistS
   public void suspend() {
     Preconditions.checkState(isWorking(), "Work never begun.");
 
-
     Stack<EntityManager> stack = entityManager.get();
     stack.push(emFactory.createEntityManager());
     entityManager.set(stack);
@@ -91,9 +90,17 @@ class JpaPersistService implements Provider<EntityManager>, UnitOfWork, PersistS
     Preconditions.checkState(isWorking(), "Work never begun.");
 
     Stack<EntityManager> stack = entityManager.get();
-    EntityManager current = stack.pop();
-    entityManager.set(stack);
-    current.close();
+
+    if (stack.size() > 1) {
+      //There is at least one manager previously suspended
+      EntityManager current = stack.pop();
+      entityManager.set(stack);
+      current.close();
+    } else {
+      //Just one (or even no) EntityManager left, so there is no one to resume
+      throw new IllegalStateException("Unbalanced call to UnitOfWork.resume(). Did you forget to UnitOfWork.suspend() before?");
+    }
+
   }
 
   public void begin() {
@@ -115,12 +122,18 @@ class JpaPersistService implements Provider<EntityManager>, UnitOfWork, PersistS
     Stack<EntityManager> ems = entityManager.get();
 
     try {
+      //first ensure to close them all
       for (EntityManager em : ems) {
         em.close();
       }
-    }
-    finally {
+    } finally {
       entityManager.remove();
+    }
+
+    //check if there was more than one EntityManager to close
+    if (ems.size() > 1) {
+      throw new IllegalStateException("You called UnitOfWork.suspend() " + (ems.size()-1) +
+          " time(s) without having a corresponding closing call to UnitOfWork.UnitOfWork.resume().");
     }
   }
 

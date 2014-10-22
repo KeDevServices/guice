@@ -91,15 +91,27 @@ See the Apache License Version 2.0 for the specific language governing permissio
     </license>
   </licenses>
 
+  <!--<distributionManagement>-->
+    <!--&lt;!&ndash; override the parent's directory to point to the canonical place, and use https. &ndash;&gt;-->
+    <!--<repository>-->
+      <!--<id>google-releases</id>-->
+      <!--<url>https://oss.sonatype.org/service/local/staging/deploy/maven2/</url>-->
+    <!--</repository>-->
+    <!--<snapshotRepository>-->
+      <!--<id>google-snapshots</id>-->
+      <!--<url>https://oss.sonatype.org/content/repositories/snapshots</url>-->
+    <!--</snapshotRepository>-->
+  <!--</distributionManagement>-->
+
   <distributionManagement>
     <!-- override the parent's directory to point to the canonical place, and use https. -->
     <repository>
-      <id>google-releases</id>
-      <url>https://oss.sonatype.org/service/local/staging/deploy/maven2/</url>
+        <id>mlp-releases</id>
+        <url>http://webapp-entw.mlp.de/nexus/content/repositories/releases</url>
     </repository>
     <snapshotRepository>
-      <id>google-snapshots</id>
-      <url>https://oss.sonatype.org/content/repositories/snapshots</url>
+        <id>mlp-snapshots</id>
+        <url>http://webapp-entw.mlp.de/nexus/content/repositories/snapshots</url>
     </snapshotRepository>
   </distributionManagement>
 
